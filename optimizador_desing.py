@@ -7,9 +7,13 @@ class optimizador:
         self.iteraciones=iter
 
 class optimizador_univariable(optimizador):
-    def __init__(self,x_inicial ,f, epsilon, iter=100):
+    def __init__(self,x_inicial,xlimite ,f, epsilon, iter=100):
         super().__init__(f, epsilon, iter)
         self.valor_inicial=x_inicial
+        self.limite=xlimite
+    
+    def optimize(self):
+        raise NotImplementedError("Subclasses should implement this method.")
 
 class optimizador_multivariable(optimizador):
     def __init__(self,variables ,f, epsilon, iter=100):
@@ -17,13 +21,11 @@ class optimizador_multivariable(optimizador):
         self.variables=variables
 
 class by_regions_elimination(optimizador_univariable):
-    def __init__(self, x_inicial, x_limite,f, epsilon, iter=100):
-        super().__init__(x_inicial, f, epsilon, iter)
-        self.limite=x_limite
-
+    def __init__(self, x_inicial, xlimite, f, epsilon, iter=100):
+        super().__init__(x_inicial, xlimite, f, epsilon, iter)
 class derivative_methods(optimizador_univariable):
-    def __init__(self, x_inicial, f, epsilon, iter=100):
-        super().__init__(x_inicial, f, epsilon, iter)
+    def __init__(self, x_inicial, xlimite, f, epsilon, iter=100):
+        super().__init__(x_inicial, xlimite, f, epsilon, iter)
 
 class direct_methods(optimizador_multivariable):
     def __init__(self, variables, f, epsilon, iter=100):
@@ -32,6 +34,7 @@ class direct_methods(optimizador_multivariable):
 class gradient_methods(optimizador_multivariable):
     def __init__(self, variables, f, epsilon, iter=100):
         super().__init__(variables, f, epsilon, iter)
+    
 
 class interval(by_regions_elimination):
     def __init__(self, x_inicial, x_limite, f, epsilon):
@@ -73,7 +76,7 @@ class interval(by_regions_elimination):
         else:
             return True
 
-    def intervalhalvingmethod(self):
+    def optimize(self):
         a,b=self.valor_inicial,self.limite
         xm=(a+b)/2
         l=b-a
@@ -128,7 +131,7 @@ class fibonacci(by_regions_elimination):
         indice2= n + 1
         return fibonacci[indice1]/ fibonacci[indice2]
 
-    def fibonaccisearch(self):
+    def optimize(self):
         a,b=self.valor_inicial,self.limite
         n=self.iteraciones
         l=b-a
@@ -164,8 +167,9 @@ class goldensearch(by_regions_elimination):
     def w_to_x(self,w, a, b):
         return w * (b - a) + a 
 
-    def busquedaDorada(self):
+    def optimize(self):
         a,b=self.valor_inicial,self.limite
+        a,b=0,1
         phi = (1 + np.sqrt(5)) / 2 - 1
         aw, bw = 0, 1
         Lw = 1
@@ -176,12 +180,13 @@ class goldensearch(by_regions_elimination):
             aw, bw = self.findregions(w1, w2, self.funcion(self.w_to_x(w1, a, b)), self.funcion(self.w_to_x(w2, a, b)), aw, bw)
             k += 1
             Lw = bw - aw
+        print("aw=",self.w_to_x(aw, a, b))
+        print("bw=",self.w_to_x(bw, a, b))
         return (self.w_to_x(aw, a, b) + self.w_to_x(bw, a, b)) / 2
 
 class newton_raphson(derivative_methods):
-    def __init__(self, x_inicial, f, epsilon):
-        super().__init__(x_inicial, f, epsilon)
-    
+    def __init__(self, x_inicial, xlimite=1, f=None, epsilon=0.1, iter=100):
+        super().__init__(x_inicial, xlimite, f, epsilon, iter)
     def primeraderivadanumerica(self, x_actual):
         delta = 0.0001
         numerador = self.funcion(x_actual + delta) - self.funcion(x_actual - delta) 
@@ -192,7 +197,7 @@ class newton_raphson(derivative_methods):
         numerado = self.funcion(x_actual + delta) - (2 * self.funcion(x_actual)) + self.funcion(x_actual - delta)
         return numerado / (delta**2)
 
-    def newton_raphson(self):
+    def optimize(self):
         k = 1
         x_actual = self.valor_inicial
         #print(f"Iteración {k}: x_actual = {x_actual}")
@@ -210,9 +215,8 @@ class newton_raphson(derivative_methods):
         return xsig
 
 class biseccion(derivative_methods):
-    def __init__(self, x_inicial,limite, f, epsilon):
-        super().__init__(x_inicial, f, epsilon)
-        self.limite=limite
+    def __init__(self, x_inicial, xlimite, f, epsilon, iter=100):
+        super().__init__(x_inicial, xlimite, f, epsilon, iter)
     def primeraderivadanumerica(self, x_actual):
         delta = 0.0001
         numerador = self.funcion(x_actual + delta) - self.funcion(x_actual - delta) 
@@ -223,7 +227,7 @@ class biseccion(derivative_methods):
         numerado = self.funcion(x_actual + delta) - (2 * self.funcion(x_actual)) + self.funcion(x_actual - delta)
         return numerado / (delta**2)
     
-    def biseccionmethod(self):
+    def optimize(self):
         a = np.random.uniform(self.valor_inicial, self.limite)
         b = np.random.uniform(self.valor_inicial, self.limite)
         while(self.primeraderivadanumerica(a) > 0):
@@ -245,14 +249,11 @@ class biseccion(derivative_methods):
                 x2=z
                 z=0
                 z = ((x2+x1)/2)
-        
-        print("Listo!")
         return x1 , x2
 
 class secante(derivative_methods):
-    def __init__(self, x_inicial,limite, f, epsilon):
-        super().__init__(x_inicial, f, epsilon)
-        self.limite=limite
+    def __init__(self, x_inicial, xlimite, f, epsilon, iter=100):
+        super().__init__(x_inicial, xlimite, f, epsilon, iter)
     def primeraderivadanumerica(self, x_actual):
         delta = 0.0001
         numerador = self.funcion(x_actual + delta) - self.funcion(x_actual - delta) 
@@ -268,7 +269,7 @@ class secante(derivative_methods):
         op=numerador/denominador
         return x2 - op
 
-    def metodosecante(self):
+    def optimize(self):
         a = np.random.uniform(self.valor_inicial, self.limite)
         b = np.random.uniform(self.valor_inicial, self.limite)
         while(self.primeraderivadanumerica(a) > 0):
@@ -302,7 +303,7 @@ class random_walk(direct_methods):
         random_value = np.random.normal(mu, stddev)
         return x_n + random_value
 
-    def randomwalk(self):
+    def optimize(self):
         x=np.array(self.variables)
         xmejor=x
         cont=0
@@ -374,7 +375,7 @@ class neldermead(direct_methods):
         for i in range(n):
             value += (((self.funcion(simplex[i]) - self.funcion(xc))**2) / (n + 1))
         return np.sqrt(value)
-    def neldermeadmead(self):
+    def optimize(self):
         cont = 1
         mov = []
         simplex = self.create_simplex(self.variables)
@@ -452,13 +453,12 @@ class hooke_jeeves(direct_methods):
     def updatedelta(self,delta):
         new_delta = delta / self.alpha
         return new_delta
-    def hookejeeves(self):
+    def optimize(self):
         cont = 0
         x_inicial = np.array(self.variables)
         delta = np.array(self.delta)
         x_anterior = x_inicial
         x_mejor, flag = self.movexploratory(x_inicial, delta)
-        print(x_mejor)
         while np.linalg.norm(delta) > self.epsilon:
             if flag:
                 x_point = self.patternmove(x_mejor, x_anterior)
@@ -480,6 +480,131 @@ class hooke_jeeves(direct_methods):
         print("Num de iteraciones {}".format(cont))
         return x_mejor_nuevo
 
+class cauchy(gradient_methods):
+    def __init__(self, variables, f, epsilon, epsilon2, iter=100, opt: optimizador_univariable = goldensearch):
+        super().__init__(variables, f, epsilon, iter)
+        self.epsilon2 = epsilon2
+        self.opt = opt
+        self.gradiente = []
+    def testalpha(self, alfa):
+        return self.funcion(self.variables - (alfa * np.array(self.gradiente)))
+    
+    def gradiente_calculation(self,x,delta=0.0001):
+        if delta == None: 
+            delta=0.00001
+        vector_f1_prim=[]
+        x_work=np.array(x)
+        x_work_f=x_work.astype(np.float64)
+        if isinstance(delta,int) or isinstance(delta,float):
+            for i in range(len(x_work_f)):
+                point=np.array(x_work_f,copy=True)
+                vector_f1_prim.append(self.primeraderivadaop(point,i,delta))
+            return vector_f1_prim
+        else:
+            for i in range(len(x_work_f)):
+                point=np.array(x_work_f,copy=True)
+                vector_f1_prim.append(self.primeraderivadaop(point,i,delta[i]))
+            return vector_f1_prim
+
+    def primeraderivadaop(self,x,i,delta):
+        mof=x[i]
+        p=np.array(x,copy=True)
+        p2=np.array(x,copy=True)
+        nump1=mof + delta
+        nump2 =mof - delta
+        p[i]= nump1
+        p2[i]=nump2
+        numerador=self.funcion(p) - self.funcion(p2)
+        return numerador / (2 * delta) 
+    def segundaderivadaop(self,x,i,delta):
+        mof=x[i]
+        p=np.array(x,copy=True)
+        p2=np.array(x,copy=True)
+        nump1=mof + delta
+        nump2 =mof - delta
+        p[i]= nump1
+        p2[i]=nump2
+        numerador=self.funcion(p) - (2 * self.funcion(x)) +  self.funcion(p2)
+        return numerador / (delta**2) 
+
+    def derivadadodadoop(self,x,index_principal,index_secundario,delta):
+        mof=x[index_principal]
+        mof2=x[index_secundario]
+        p=np.array(x,copy=True)
+        p2=np.array(x,copy=True)
+        p3=np.array(x,copy=True)
+        p4=np.array(x,copy=True)
+        if isinstance(delta,int) or isinstance(delta,float):#Cuando delta es un solo valor y no un arreglo 
+            mod1=mof + delta
+            mod2=mof - delta
+            mod3=mof2 + delta
+            mod4=mof2 - delta
+            p[index_principal]=mod1
+            p[index_secundario]=mod3
+            p2[index_principal]=mod1
+            p2[index_secundario]=mod4
+            p3[index_principal]=mod2
+            p3[index_secundario]=mod3
+            p4[index_principal]=mod2
+            p4[index_secundario]=mod4
+            numerador=((self.funcion(p)) - self.funcion(p2) - self.funcion(p3) + self.funcion(p4))
+            return numerador / (4*delta*delta)
+        else:#delta si es un arreglo 
+            mod1=mof + delta[index_principal]
+            mod2=mof - delta[index_principal]
+            mod3=mof2 + delta[index_secundario]
+            mod4=mof2 - delta[index_secundario]
+            p[index_principal]=mod1
+            p[index_secundario]=mod3
+            p2[index_principal]=mod1
+            p2[index_secundario]=mod4
+            p3[index_principal]=mod2
+            p3[index_secundario]=mod3
+            p4[index_principal]=mod2
+            p4[index_secundario]=mod4
+            numerador=((self.funcion(p)) - self.funcion(p2) - self.funcion(p3) + self.funcion(p4))
+            return numerador / (4*delta*delta)
+
+        
+    def hessian_matrix(self,x,delt=0.0001):# x es el vector de variables
+        matrix_f2_prim=[([0]*len(x)) for i in range(len(x))]
+        x_work=np.array(x)
+        x_work_f=x_work.astype(np.float64)
+        for i in range(len(x)):
+            point=np.array(x_work_f,copy=True)
+            for j in range(len(x)):
+                if i == j:
+                    matrix_f2_prim[i][j]=self.segundaderivadaop(point,i,delt)
+                else:
+                    matrix_f2_prim[i][j]=self.derivadadodadoop(point,i,j,delt)
+        return matrix_f2_prim
+    
+    def optimizaralpha(self,test):
+        opt=self.opt(min(self.variables),max(self.variables) ,test,self.epsilon)
+        alfa=opt.optimize()
+        return alfa
+    def optimize(self):
+        terminar = False
+        xk = self.variables
+        k = 0
+        while not terminar:
+            grad = np.array(self.gradiente_calculation(xk))
+            print(grad)
+            if np.linalg.norm(grad) < self.epsilon or k >= self.iteraciones:
+                terminar = True
+            else:
+                def alpha_funcion(alpha):
+                    return self.funcion(xk - alpha * grad)
+                alpha = self.optimizaralpha(alpha_funcion)
+                print(alpha)
+                xk_1 = xk - alpha * grad
+                if np.linalg.norm(xk_1 - xk) / (np.linalg.norm(xk) + 0.0001) < self.epsilon2:
+                    terminar = True
+                xk = xk_1
+                k += 1
+        print(k)
+        return xk
+    
 if __name__=="__main__":
     def funcion1(x):
         return (x**2) + (54/x)
@@ -488,18 +613,12 @@ if __name__=="__main__":
     def boothfunction(x):
         return ((x[0] + 2 * (x[1]) - 7) ** 2) + ((2 * x[0]) + x[1] - 5) ** 2
     
-    epsilon=0.01
-    a=1
-    b=10
+    epsilon = 0.01
     x_inicial = 1
-    inicial=[-5,-2.5]
-    delta=[0.5,0.25]
-    gamma = 1.1
-    beta= 0.5
-    hooke_jeeves_optimizer = hooke_jeeves(variables=inicial, delta=delta, f=boothfunction, epsilon=epsilon)
-    
-    # Ejecutar el método Hooke-Jeeves
-    resultado = hooke_jeeves_optimizer.hookejeeves()
-    
-    # Imprimir el resultado
-    print("Resultado de la optimización:", resultado)
+    x_limite = 10
+    iteraciones = 100
+    inicial=[1,1]
+
+    c=cauchy(inicial,himmelblau,epsilon=epsilon,epsilon2=epsilon)
+    print(c.optimize())
+
