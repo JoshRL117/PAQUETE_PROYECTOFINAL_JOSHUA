@@ -152,7 +152,7 @@ class fibonacci(by_regions_elimination):
                 #print(" Valor actual de a y b = {} , {}".format(a,b))
             k+=1
         
-        return a , b
+        return (a+b)/2
 
 class goldensearch(by_regions_elimination):
     def __init__(self, x_inicial, x_limite, f, epsilon):
@@ -169,7 +169,6 @@ class goldensearch(by_regions_elimination):
 
     def optimize(self):
         a,b=self.valor_inicial,self.limite
-        a,b=0,1
         phi = (1 + np.sqrt(5)) / 2 - 1
         aw, bw = 0, 1
         Lw = 1
@@ -180,8 +179,6 @@ class goldensearch(by_regions_elimination):
             aw, bw = self.findregions(w1, w2, self.funcion(self.w_to_x(w1, a, b)), self.funcion(self.w_to_x(w2, a, b)), aw, bw)
             k += 1
             Lw = bw - aw
-        print("aw=",self.w_to_x(aw, a, b))
-        print("bw=",self.w_to_x(bw, a, b))
         return (self.w_to_x(aw, a, b) + self.w_to_x(bw, a, b)) / 2
 
 class newton_raphson(derivative_methods):
@@ -580,7 +577,7 @@ class cauchy(gradient_methods):
         return matrix_f2_prim
     
     def optimizaralpha(self,test):
-        opt=self.opt(min(self.variables),max(self.variables) ,test,self.epsilon)
+        opt=self.opt(0,max(self.variables) ,test,self.epsilon)
         alfa=opt.optimize()
         return alfa
     def optimize(self):
@@ -589,14 +586,12 @@ class cauchy(gradient_methods):
         k = 0
         while not terminar:
             grad = np.array(self.gradiente_calculation(xk))
-            print(grad)
             if np.linalg.norm(grad) < self.epsilon or k >= self.iteraciones:
                 terminar = True
             else:
                 def alpha_funcion(alpha):
                     return self.funcion(xk - alpha * grad)
                 alpha = self.optimizaralpha(alpha_funcion)
-                print(alpha)
                 xk_1 = xk - alpha * grad
                 if np.linalg.norm(xk_1 - xk) / (np.linalg.norm(xk) + 0.0001) < self.epsilon2:
                     terminar = True
@@ -604,7 +599,434 @@ class cauchy(gradient_methods):
                 k += 1
         print(k)
         return xk
+
+class newton(gradient_methods):
+    def __init__(self, variables, f, epsilon, epsilon2, iter=100, opt: optimizador_univariable = goldensearch):
+        super().__init__(variables, f, epsilon, iter)
+        self.epsilon2 = epsilon2
+        self.opt = opt
+        self.gradiente = []
+    def testalpha(self, alfa):
+        return self.funcion(self.variables - (alfa * np.array(self.gradiente)))
     
+    def gradiente_calculation(self,x,delta=0.0001):
+        if delta == None: 
+            delta=0.00001
+        vector_f1_prim=[]
+        x_work=np.array(x)
+        x_work_f=x_work.astype(np.float64)
+        if isinstance(delta,int) or isinstance(delta,float):
+            for i in range(len(x_work_f)):
+                point=np.array(x_work_f,copy=True)
+                vector_f1_prim.append(self.primeraderivadaop(point,i,delta))
+            return vector_f1_prim
+        else:
+            for i in range(len(x_work_f)):
+                point=np.array(x_work_f,copy=True)
+                vector_f1_prim.append(self.primeraderivadaop(point,i,delta[i]))
+            return vector_f1_prim
+
+    def primeraderivadaop(self,x,i,delta):
+        mof=x[i]
+        p=np.array(x,copy=True)
+        p2=np.array(x,copy=True)
+        nump1=mof + delta
+        nump2 =mof - delta
+        p[i]= nump1
+        p2[i]=nump2
+        numerador=self.funcion(p) - self.funcion(p2)
+        return numerador / (2 * delta) 
+    def segundaderivadaop(self,x,i,delta):
+        mof=x[i]
+        p=np.array(x,copy=True)
+        p2=np.array(x,copy=True)
+        nump1=mof + delta
+        nump2 =mof - delta
+        p[i]= nump1
+        p2[i]=nump2
+        numerador=self.funcion(p) - (2 * self.funcion(x)) +  self.funcion(p2)
+        return numerador / (delta**2) 
+
+    def derivadadodadoop(self,x,index_principal,index_secundario,delta):
+        mof=x[index_principal]
+        mof2=x[index_secundario]
+        p=np.array(x,copy=True)
+        p2=np.array(x,copy=True)
+        p3=np.array(x,copy=True)
+        p4=np.array(x,copy=True)
+        if isinstance(delta,int) or isinstance(delta,float):#Cuando delta es un solo valor y no un arreglo 
+            mod1=mof + delta
+            mod2=mof - delta
+            mod3=mof2 + delta
+            mod4=mof2 - delta
+            p[index_principal]=mod1
+            p[index_secundario]=mod3
+            p2[index_principal]=mod1
+            p2[index_secundario]=mod4
+            p3[index_principal]=mod2
+            p3[index_secundario]=mod3
+            p4[index_principal]=mod2
+            p4[index_secundario]=mod4
+            numerador=((self.funcion(p)) - self.funcion(p2) - self.funcion(p3) + self.funcion(p4))
+            return numerador / (4*delta*delta)
+        else:#delta si es un arreglo 
+            mod1=mof + delta[index_principal]
+            mod2=mof - delta[index_principal]
+            mod3=mof2 + delta[index_secundario]
+            mod4=mof2 - delta[index_secundario]
+            p[index_principal]=mod1
+            p[index_secundario]=mod3
+            p2[index_principal]=mod1
+            p2[index_secundario]=mod4
+            p3[index_principal]=mod2
+            p3[index_secundario]=mod3
+            p4[index_principal]=mod2
+            p4[index_secundario]=mod4
+            numerador=((self.funcion(p)) - self.funcion(p2) - self.funcion(p3) + self.funcion(p4))
+            return numerador / (4*delta*delta)
+
+        
+    def hessian_matrix(self,x,delt=0.0001):# x es el vector de variables
+        matrix_f2_prim=[([0]*len(x)) for i in range(len(x))]
+        x_work=np.array(x)
+        x_work_f=x_work.astype(np.float64)
+        for i in range(len(x)):
+            point=np.array(x_work_f,copy=True)
+            for j in range(len(x)):
+                if i == j:
+                    matrix_f2_prim[i][j]=self.segundaderivadaop(point,i,delt)
+                else:
+                    matrix_f2_prim[i][j]=self.derivadadodadoop(point,i,j,delt)
+        return matrix_f2_prim
+    
+    def optimizaralpha(self,test):
+        opt=self.opt(0,max(self.variables) ,test,self.epsilon)
+        alfa=opt.optimize()
+        return alfa
+    def optimize(self):
+        terminar = False
+        xk = self.variables
+        k = 0
+        while not terminar:
+            gradiente = np.array(self.gradiente_calculation(xk))
+            hessiana = self.hessian_matrix(xk)
+            invhes=np.linalg.inv(hessiana)
+            grad=np.dot(invhes,gradiente)
+            if np.linalg.norm(grad) < self.epsilon or k >= self.iteraciones:
+                terminar = True
+            else:
+                def alpha_funcion(alpha):
+                    return self.funcion(xk - alpha * grad)
+                alpha = self.optimizaralpha(alpha_funcion)
+                xk_1 = xk - alpha * np.dot(invhes, gradiente)
+                if np.linalg.norm(xk_1 - xk) / (np.linalg.norm(xk) + 0.0001) < self.epsilon2:
+                    terminar = True
+                xk = xk_1
+                k += 1
+        print(k)
+        return xk
+
+class fletcher_reeves(gradient_methods):
+    def __init__(self, variables, f, epsilon, epsilon2, epsilon3,iter=100, opt: optimizador_univariable = goldensearch):
+        super().__init__(variables, f, epsilon, iter)
+        self.epsilon2 = epsilon2
+        self.epsilon3=epsilon3
+        self.opt = opt
+        self.gradiente = []
+    def testalpha(self, alfa):
+        return self.funcion(self.variables - (alfa * np.array(self.gradiente)))
+    
+    def gradiente_calculation(self,x,delta=0.0001):
+        if delta == None: 
+            delta=0.00001
+        vector_f1_prim=[]
+        x_work=np.array(x)
+        x_work_f=x_work.astype(np.float64)
+        if isinstance(delta,int) or isinstance(delta,float):
+            for i in range(len(x_work_f)):
+                point=np.array(x_work_f,copy=True)
+                vector_f1_prim.append(self.primeraderivadaop(point,i,delta))
+            return vector_f1_prim
+        else:
+            for i in range(len(x_work_f)):
+                point=np.array(x_work_f,copy=True)
+                vector_f1_prim.append(self.primeraderivadaop(point,i,delta[i]))
+            return vector_f1_prim
+
+    def primeraderivadaop(self,x,i,delta):
+        mof=x[i]
+        p=np.array(x,copy=True)
+        p2=np.array(x,copy=True)
+        nump1=mof + delta
+        nump2 =mof - delta
+        p[i]= nump1
+        p2[i]=nump2
+        numerador=self.funcion(p) - self.funcion(p2)
+        return numerador / (2 * delta) 
+    def segundaderivadaop(self,x,i,delta):
+        mof=x[i]
+        p=np.array(x,copy=True)
+        p2=np.array(x,copy=True)
+        nump1=mof + delta
+        nump2 =mof - delta
+        p[i]= nump1
+        p2[i]=nump2
+        numerador=self.funcion(p) - (2 * self.funcion(x)) +  self.funcion(p2)
+        return numerador / (delta**2) 
+
+    def derivadadodadoop(self,x,index_principal,index_secundario,delta):
+        mof=x[index_principal]
+        mof2=x[index_secundario]
+        p=np.array(x,copy=True)
+        p2=np.array(x,copy=True)
+        p3=np.array(x,copy=True)
+        p4=np.array(x,copy=True)
+        if isinstance(delta,int) or isinstance(delta,float):#Cuando delta es un solo valor y no un arreglo 
+            mod1=mof + delta
+            mod2=mof - delta
+            mod3=mof2 + delta
+            mod4=mof2 - delta
+            p[index_principal]=mod1
+            p[index_secundario]=mod3
+            p2[index_principal]=mod1
+            p2[index_secundario]=mod4
+            p3[index_principal]=mod2
+            p3[index_secundario]=mod3
+            p4[index_principal]=mod2
+            p4[index_secundario]=mod4
+            numerador=((self.funcion(p)) - self.funcion(p2) - self.funcion(p3) + self.funcion(p4))
+            return numerador / (4*delta*delta)
+        else:#delta si es un arreglo 
+            mod1=mof + delta[index_principal]
+            mod2=mof - delta[index_principal]
+            mod3=mof2 + delta[index_secundario]
+            mod4=mof2 - delta[index_secundario]
+            p[index_principal]=mod1
+            p[index_secundario]=mod3
+            p2[index_principal]=mod1
+            p2[index_secundario]=mod4
+            p3[index_principal]=mod2
+            p3[index_secundario]=mod3
+            p4[index_principal]=mod2
+            p4[index_secundario]=mod4
+            numerador=((self.funcion(p)) - self.funcion(p2) - self.funcion(p3) + self.funcion(p4))
+            return numerador / (4*delta*delta)
+
+        
+    def hessian_matrix(self,x,delt=0.0001):# x es el vector de variables
+        matrix_f2_prim=[([0]*len(x)) for i in range(len(x))]
+        x_work=np.array(x)
+        x_work_f=x_work.astype(np.float64)
+        for i in range(len(x)):
+            point=np.array(x_work_f,copy=True)
+            for j in range(len(x)):
+                if i == j:
+                    matrix_f2_prim[i][j]=self.segundaderivadaop(point,i,delt)
+                else:
+                    matrix_f2_prim[i][j]=self.derivadadodadoop(point,i,j,delt)
+        return matrix_f2_prim
+    
+    def optimizaralpha(self,test):
+        opt=self.opt(0,max(self.variables) ,test,self.epsilon)
+        alfa=opt.optimize()
+        return alfa
+    
+    def s_sig_gradcon(self,gradiente_ac, gradiente_ant, s):
+        beta = np.dot(gradiente_ac, gradiente_ac) / np.dot(gradiente_ant, gradiente_ant)
+        return -gradiente_ac + beta * s
+
+    def optimize(self):
+        xk = np.array(self.variables)
+        grad = self.gradiente_calculation(xk)
+        grad=np.array(grad)
+        sk = np.array(grad*-1)
+        k = 1
+        while (np.linalg.norm(grad) >= self.epsilon3) and (k <= self.iteraciones):
+            def alpha_funcion(alpha):
+                return self.funcion(xk - alpha * grad)
+            alpha = self.optimizaralpha(alpha_funcion)
+            print(alpha)
+            xk_1 = xk + alpha * sk
+            
+            if np.linalg.norm(xk_1 - xk) / np.linalg.norm(xk) < self.epsilon2:
+                break
+            #print(f"xk: {xk}, xk_1: {xk_1}, Norm: {np.linalg.norm(xk_1 - xk) / np.linalg.norm(xk)}")
+            
+            grad_1 = np.array(self.gradiente_calculation(xk_1))
+            sk = self.s_sig_gradcon(grad_1, grad, sk)
+            xk = xk_1
+            grad = np.array(grad_1)
+            k += 1
+        return xk
+
+class objetive_function:
+    def __init__(self,name):
+        self.name=name
+    def himmelblau(self, p):
+        self.limite=5
+        return (p[0]**2 + p[1] - 11)**2 + (p[0] + p[1]**2 - 7)**2
+    
+    def sphere(self, x):
+        return np.sum(np.square(x))
+
+    def rastrigin(self, x, A=10):
+        self.limite=float(5.12)
+        n = len(x)
+        return A * n + np.sum(x**2 - A * np.cos(2 * np.pi * x))
+
+    def rosenbrock(self, x):
+        return np.sum(100 * (x[1:] - x[:-1]**2)**2 + (1 - x[:-1])**2)
+
+    def beale(self, x):
+        self.limite=4.5
+        return ((1.5 - x[0] + x[0] * x[1])**2 +
+                (2.25 - x[0] + x[0] * x[1]**2)**2 +
+                (2.625 - x[0] + x[0] * x[1]**3)**2)
+    
+    def goldstein(self, x):
+        self.limite=2
+        part1 = (1 + (x[0] + x[1] + 1)**2 * 
+                 (19 - 14 * x[0] + 3 * x[0]**2 - 14 * x[1] + 6 * x[0] * x[1] + 3 * x[1]**2))
+        part2 = (30 + (2 * x[0] - 3 * x[1])**2 * 
+                 (18 - 32 * x[0] + 12 * x[0]**2 + 48 * x[1] - 36 * x[0] * x[1] + 27 * x[1]**2))
+        return part1 * part2
+
+    def boothfunction(self, x):
+        self.limite=10
+        return (x[0] + 2 * x[1] - 7)**2 + (2 * x[0] + x[1] - 5)**2
+
+    def bunkinn6(self, x):
+        return 100 * np.sqrt(np.abs(x[1] - 0.001 * x[0]**2)) + 0.01 * np.abs(x[0] + 10)
+
+    def matyas(self, x):
+        return 0.26 * (x[0]**2 + x[1]**2) - 0.48 * x[0] * x[1]
+
+    def levi(self, x):
+        part1 = np.sin(3 * np.pi * x[0])**2
+        part2 = (x[0] - 1)**2 * (1 + np.sin(3 * np.pi * x[1])**2)
+        part3 = (x[1] - 1)**2 * (1 + np.sin(2 * np.pi * x[1])**2)
+        return part1 + part2 + part3
+    
+    def threehumpcamel(self, x):
+        return 2 * x[0]**2 - 1.05 * x[0]**4 + (x[0]**6) / 6 + x[0] * x[1] + x[1]**2
+
+    def easom(self, x):
+        return -np.cos(x[0]) * np.cos(x[1]) * np.exp(-(x[0] - np.pi)**2 - (x[1] - np.pi)**2)
+
+    def crossintray(self, x):
+        op = np.abs(np.sin(x[0]) * np.sin(x[1]) * np.exp(np.abs(100 - np.sqrt(x[0]**2 + x[1]**2) / np.pi)))
+        return -0.0001 * (op + 1)**0.1
+
+    def eggholder(self, x):
+        op1 = -(x[1] + 47) * np.sin(np.sqrt(np.abs(x[0] / 2 + (x[1] + 47))))
+        op2 = -x[0] * np.sin(np.sqrt(np.abs(x[0] - (x[1] + 47))))
+        return op1 + op2
+
+    def holdertable(self, x):
+        op = np.abs(np.sin(x[0]) * np.cos(x[1]) * np.exp(np.abs(1 - np.sqrt(x[0]**2 + x[1]**2) / np.pi)))
+        return -op
+
+    def mccormick(self, x):
+        return np.sin(x[0] + x[1]) + (x[0] - x[1])**2 - 1.5 * x[0] + 2.5 * x[1] + 1
+
+    def schaffern2(self, x):
+        self.limite=100
+        numerator = np.sin(x[0]**2 - x[1]**2)**2 - 0.5
+        denominator = (1 + 0.001 * (x[0]**2 + x[1]**2))**2
+        return 0.5 + numerator / denominator
+
+    def schaffern4(self, x):
+        self.limite=100
+        num = np.cos(np.sin(np.abs(x[0]**2 - x[1]**2))) - 0.5
+        den = (1 + 0.001 * (x[0]**2 + x[1]**2))**2
+        return 0.5 + num / den
+
+    def styblinskitang(self, x):
+        self.limite=5
+        return np.sum(x**4 - 16 * x**2 + 5 * x) / 2
+    
+    def shekel(self, x, a=None, c=None):
+        if a is None:# Esto lo hice para que el usuario pueda meter los pesos que guste, si no se ponen estos
+            a = np.array([
+                [4.0, 4.0, 4.0, 4.0],
+                [1.0, 1.0, 1.0, 1.0],
+                [8.0, 8.0, 8.0, 8.0],
+                [6.0, 6.0, 6.0, 6.0],
+                [3.0, 7.0, 3.0, 7.0],
+                [2.0, 9.0, 2.0, 9.0],
+                [5.0, 5.0, 3.0, 3.0],
+                [8.0, 1.0, 8.0, 1.0],
+                [6.0, 2.0, 6.0, 2.0],
+                [7.0, 3.6, 7.0, 3.6]
+            ])
+        if c is None:
+            c = np.array([0.1, 0.2, 0.2, 0.4, 0.4, 0.6, 0.3, 0.7, 0.5, 0.5])#Lo mismo que con a
+        
+        m = len(c)
+        s = 0
+        for i in range(m):
+            s -= 1 / (np.dot(x - a[i, :2], x - a[i, :2]) + c[i])#Esta es la sumatoria dado m, que seria el numero de terminos en la suma
+        return s
+    def get_function(self):
+        func = getattr(self, self.name.lower, None)
+        if func is None:
+            raise ValueError(f"Function '{self.name}' is not defined in the class.")
+        return func
+
+class restriction_fuctions:
+    def __init__(self,data):
+        self.data=data
+        self.dim=len(data)
+    
+    def rosenbrooklinecubic(self,x): 
+        return np.array([(1 - x[0])**2 + 100 * (x[1] - (x[0]**2))**2 ])
+
+    def rosenbrooklinecubic_restriction(self,x):
+        return (((x[0] - 1  )**3 - x[1] + 1))>= 0 and (x[0] + x[1] - 2) <= 0
+        
+    def rosenbrookdisk(self,x): 
+        return np.array([(1 - x[0])**2 + 100 * (x[1] - (x[0]**2))**2])
+
+    def rosenbrookdisk_restriction(self,x):
+        return(x[0]**2 + x[1] ** 2 )
+
+    def mishrabird(self,x):
+        return np.sin(x[1]) * np.exp((1 - np.cos(x[0]))**2) + np.cos(x[0]) * np.exp((1 - np.sin(x[1]))**2) + (x[0] - x[1])**2
+
+    def mishabird_restriction(self,x):
+        return (x[0] + 5)**2 + (x[1] + 5)**2 < 25
+
+    def townsendmod(self,x):
+        return - (np.cos((x[0] - 0.1) * x[1]))**2 - x[0] * np.sin(3 * x[0] + x[1])
+
+    def townsendmod_restriction(self,x):
+        t = np.arctan2(x[1], x[0])
+        op1 = x[0]**2 + x[1]**2
+        op2 = (2 * np.cos(t) - 0.5 * np.cos(2 * t) - 0.25 * np.cos(3 * t) - 0.125 * np.cos(4 * t))**2 + (2 * np.sin(t))**2
+        return op1 < op2
+
+    def gomezandlevy(self,x):
+        return 4 * x[0]**2 - 2.1 * x[0]**4 + (1 / 3) * x[0]**6 + x[0] * x[1] - 4 * x[1]**2 + 4 * x[1]**4
+
+    def gomezandlevi_restriction(self,x):
+        return -np.sin(4 * np.pi * x[0]) + 2 * np.sin(2 * np.pi * x[1])**2 <= 1.5
+
+    def simionescu(self,x):
+        return 0.1 * (x[0] * x[1])
+
+    def simionescu_restriction(self,x):
+        r_T=1
+        r_S=0.2
+        n=8
+        angulo = np.arctan2(x[1], x[0]) 
+        cosine_term = np.cos(n * angulo)
+        op = (r_T + r_S * cosine_term) ** 2
+        return x[1]**2 + x[1]**2 - op
+    def get_function(self, func_name):
+        func = getattr(self, func_name, None)
+        if func is None:
+            raise ValueError(f"Function '{func_name}' is not defined in the class.")
+        return func
 if __name__=="__main__":
     def funcion1(x):
         return (x**2) + (54/x)
@@ -618,7 +1040,11 @@ if __name__=="__main__":
     x_limite = 10
     iteraciones = 100
     inicial=[1,1]
+    inicial_n=[2,3]
 
     c=cauchy(inicial,himmelblau,epsilon=epsilon,epsilon2=epsilon)
-    print(c.optimize())
-
+    #print(c.optimize())
+    n=newton(inicial_n,himmelblau,epsilon=epsilon,epsilon2=epsilon)
+    #print(n.optimize())
+    g=fletcher_reeves(inicial,himmelblau,epsilon=epsilon,epsilon2=epsilon,epsilon3=epsilon)
+    print(g.optimize())
